@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<script>
+// === PASSWORT-SCHUTZ ===
+const PASSWORT = "Team681!"; 
+
+(function() {
+  const auth = sessionStorage.getItem('kanban-auth');
+  if (auth === PASSWORT) return;
+
+  const input = prompt('Dieses Kanban-Board ist geschützt.\nBitte Passwort eingeben:');
+  if (input === PASSWORT) {
+    sessionStorage.setItem('kanban-auth', PASSWORT);
+    location.reload();
+  } else {
+    alert('Falsches Passwort!');
+    location.href = 'https://www.jobcenter-bonn.de';
+  }
+})();
+</script> 
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jobcenter Bonn - Team Board 681</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 20px; background-color: #f4f6f8; color: #333; }
+        
+        header { display: flex; align-items: center; justify-content: center; margin-bottom: 30px; gap: 20px; }
+        header img { max-width: 150px; }
+        h1 { color: #004a8f; margin: 0; }
+
+        /* Kanban Container */
+        .kanban-board { 
+            display: flex; 
+            align-items: flex-start; /* Wichtig, damit Spalten nicht unnötig lang gezogen werden */
+            justify-content: space-between; 
+            gap: 15px; 
+            overflow-x: auto; 
+            padding-bottom: 20px;
+        }
+
+        .column { 
+            flex: 1; 
+            min-width: 280px; 
+            min-height: 500px; 
+            background: #eef2f5;
+            padding: 10px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+            border-top: 5px solid #ccc;
+        }
+
+        /* Spalten-Spezifika */
+        #pool { border-top-color: #7f8c8d; background-color: #e8e8e8; } /* Grau */
+        #zu-erledigen { border-top-color: #3498db; background-color: #e3f2fd; } /* Blau */
+        #im-gange { border-top-color: #f1c40f; background-color: #fffde7; } /* Gelb */
+        #erledigt { border-top-color: #2ecc71; background-color: #e8f5e9; } /* Grün */
+
+        .column h2 { 
+            text-align: center; 
+            font-size: 1.1em; 
+            margin: 0 0 15px 0; 
+            color: #444; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+        }
+        
+        /* Karten Styling */
+        .task {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: move;
+            position: relative;
+            border-left: 5px solid #ccc; /* Default Status Farbe */
+            transition: all 0.3s ease;
+        }
+
+        .task:hover { box-shadow: 0 5px 15px rgba(0,0,0,0.15); }
+
+        /* Status Farben der Karte (Dynamisch) */
+        .task.status-normal { border-left-color: #004a8f; } /* Blau */
+        .task.status-today { background-color: #fff9c4; border-left-color: #fbc02d; } /* Gelb */
+        .task.status-overdue { background-color: #ffcdd2; border-left-color: #c62828; } /* Rot */
+        .task.status-done { opacity: 0.7; border-left-color: #2ecc71; text-decoration: none; }
+
+        /* Inhalte der Karte */
+        .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .task-title { font-weight: bold; font-size: 1.1em; color: #004a8f; margin: 0; word-break: break-word; }
+        .delete-btn { background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.2em; padding: 0; }
+        .delete-btn:hover { color: #c0392b; }
+
+        .task-meta { display: flex; flex-direction: column; gap: 8px; font-size: 0.9em; }
+        
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-size: 0.75em; color: #666; margin-bottom: 2px; }
+        
+        input[type="date"], input[type="text"], textarea {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            box-sizing: border-box;
+            background: rgba(255,255,255,0.8);
+        }
+        
+        textarea { resize: vertical; min-height: 60px; font-size: 0.9em; }
+
+        .add-button { 
+            position: fixed; 
+            bottom: 30px; 
+            right: 30px; 
+            background: #004a8f; 
+            color: white; 
+            border: none; 
+            border-radius: 50px; 
+            width: 60px; 
+            height: 60px; 
+            font-size: 30px; 
+            cursor: pointer; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .add-button:hover { background: #003366; transform: scale(1.05); }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="https://www.jobcenter-bonn.de/wp-content/uploads/2020/06/logo.svg" alt="Jobcenter Bonn Logo">
+    <h1>Team Board</h1>
+</header>
+
+<div class="kanban-board">
+    <div class="column" id="pool" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <h2>Aufgabenpool</h2>
+    </div>
+
+    <div class="column" id="zu-erledigen" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <h2>Zu erledigen</h2>
+    </div>
+    
+    <div class="column" id="im-gange" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <h2>Im Gange</h2>
+    </div>
+    
+    <div class="column" id="erledigt" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <h2>Erledigt</h2>
+    </div>
+</div>
+
+<button class="add-button" onclick="addTask()" title="Neue Aufgabe">+</button>
+
+<script>
+const BACKEND_URL = 'https://lit-scrubland-73027-a6db311f6ba4.herokuapp.com';
+
+// Drag & Drop Basics
+function allowDrop(ev) { ev.preventDefault(); }
+function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
+
+// Drop Handler: Aktualisiert den Status (Spalte)
+async function drop(ev) {
+    ev.preventDefault();
+    const id = ev.dataTransfer.getData("text");
+    const card = document.getElementById(id);
+    const col = ev.target.closest('.column');
+    
+    if (card && col) {
+        col.appendChild(card);
+        const taskId = id.replace("card-", "");
+        const newStatus = col.id;
+        
+        // Backend Update
+        try {
+            await fetch(`${BACKEND_URL}/tasks/${taskId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            // Style aktualisieren (falls z.B. in Erledigt verschoben -> Ausgrauen)
+            updateCardVisuals(card); 
+        } catch(e) { console.error("Update Fehler", e); }
+    }
+}
+
+// Lädt alle Aufgaben beim Start
+async function loadTasks() {
+    try {
+        document.querySelectorAll(".task").forEach(e => e.remove());
+        const res = await fetch(`${BACKEND_URL}/tasks`);
+        const tasks = await res.json();
+        
+        tasks.forEach(task => {
+            // Fallback, falls Aufgabe noch keinen Status hat -> ab in den Pool
+            const status = task.status || 'pool'; 
+            createCard(task._id, task.name, status, task.dueDate, task.assignee, task.description);
+        });
+    } catch (e) { console.error("Ladefehler", e); }
+}
+
+// Neue Aufgabe erstellen (Default: Pool)
+async function addTask() {
+    const name = prompt("Neue Aufgabe eingeben:");
+    if (!name) return;
+    
+    try {
+        const payload = { 
+            name, 
+            status: 'pool',
+            dueDate: '',      // Backend muss das unterstützen
+            assignee: '',     // Backend muss das unterstützen
+            description: ''   // Backend muss das unterstützen
+        };
+
+        const res = await fetch(`${BACKEND_URL}/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (res.ok) {
+            loadTasks(); // Neu laden, um sicherzugehen, dass ID da ist
+        }
+    } catch (e) { console.error("Erstellfehler", e); }
+}
+
+// Karte rendern
+function createCard(id, name, status, dueDate = '', assignee = '', description = '') {
+    // Sicherstellen, dass die Spalte existiert, sonst Pool
+    let col = document.getElementById(status);
+    if (!col) col = document.getElementById('pool');
+
+    const card = document.createElement('div');
+    card.className = 'task';
+    card.id = 'card-' + id;
+    card.draggable = true;
+    card.ondragstart = drag;
+
+    // HTML Aufbau der Karte
+    card.innerHTML = `
+        <div class="task-header">
+            <p class="task-title">${name}</p>
+            <button class="delete-btn" onclick="deleteTask('${id}')">&times;</button>
+        </div>
+        
+        <div class="task-meta">
+            <div class="form-group">
+                <label>Frist:</label>
+                <input type="date" value="${dueDate ? dueDate.split('T')[0] : ''}" 
+                       onchange="saveTaskData('${id}', this, 'dueDate')">
+            </div>
+            
+            <div class="form-group">
+                <label>Verantwortlich (MA):</label>
+                <input type="text" placeholder="Kürzel / Name" value="${assignee || ''}" 
+                       onblur="saveTaskData('${id}', this, 'assignee')">
+            </div>
+            
+            <div class="form-group">
+                <label>Hinweise / Blockierer:</label>
+                <textarea placeholder="Freitext..." onblur="saveTaskData('${id}', this, 'description')">${description || ''}</textarea>
+            </div>
+        </div>
+    `;
+
+    col.appendChild(card);
+    updateCardVisuals(card); // Initialfarben setzen
+}
+
+// Speichert Daten (Datum, MA, Text) bei Änderung
+async function saveTaskData(taskId, inputElement, fieldName) {
+    const value = inputElement.value;
+    const card = inputElement.closest('.task');
+    
+    // Visuelles Feedback sofort
+    updateCardVisuals(card);
+
+    try {
+        const payload = {};
+        payload[fieldName] = value;
+        
+        await fetch(`${BACKEND_URL}/tasks/${taskId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    } catch (e) { console.error("Speicherfehler", e); }
+}
+
+// Berechnet Farben basierend auf Datum und Status
+function updateCardVisuals(card) {
+    const dateInput = card.querySelector('input[type="date"]');
+    const colId = card.closest('.column').id;
+    
+    // Reset classes
+    card.classList.remove('status-normal', 'status-today', 'status-overdue', 'status-done');
+
+    // Wenn erledigt -> Grün & Durchscheinend
+    if (colId === 'erledigt') {
+        card.classList.add('status-done');
+        return;
+    }
+
+    if (!dateInput.value) {
+        // Keine Frist -> Standard Grau/Blau
+        card.classList.add('status-normal'); 
+        return;
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const dueStr = dateInput.value;
+
+    if (dueStr < todayStr) {
+        card.classList.add('status-overdue'); // Rot (Überfällig)
+    } else if (dueStr === todayStr) {
+        card.classList.add('status-today');   // Gelb (Heute)
+    } else {
+        card.classList.add('status-normal');  // Blau (Zukunft)
+    }
+}
+
+// Löschen
+async function deleteTask(taskId) {
+    if (!confirm('Aufgabe wirklich löschen?')) return;
+    try {
+        await fetch(`${BACKEND_URL}/tasks/${taskId}`, { method: 'DELETE' });
+        document.getElementById(`card-${taskId}`).remove();
+    } catch (e) { console.error("Löschfehler", e); }
+}
+
+// Init
+loadTasks();
+
+</script>
+</body>
+</html>
